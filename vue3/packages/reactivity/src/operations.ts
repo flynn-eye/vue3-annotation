@@ -1,6 +1,8 @@
 // using literal strings instead of numbers so that it's easier to inspect
 // debugger events
-
+/* 
+track和 trigger触发的类型
+ */
 export const enum TrackOpTypes {
   GET = 'get',
   HAS = 'has',

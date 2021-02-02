@@ -1,0 +1,5 @@
+vue3/node_modules
+vue3/packages/vue/node_modules
+vue3/packages/runtime-dom/node_modules
+vue3/packages/compiler-sfc/node_modules
+vue3/packages/compiler-core/node_modules
