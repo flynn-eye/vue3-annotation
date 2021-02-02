@@ -11,7 +11,13 @@ import {
   shallowCollectionHandlers
 } from './collectionHandlers'
 import { UnwrapRef, Ref } from './ref'
-
+/* 
+reactive
+shallowReactive
+readonly
+shallowReadonly
+上面的方法最终调用的是 createReactiveObject
+*/
 export const enum ReactiveFlags {
   SKIP = '__v_skip',
   IS_REACTIVE = '__v_isReactive',
@@ -20,7 +26,11 @@ export const enum ReactiveFlags {
 }
 
 export interface Target {
-  [ReactiveFlags.SKIP]?: boolean
+  /* 
+  markRaw方法就是在对象上添加__v_skip属性值为true，
+  那么这个对象就不能被proxy了
+  */
+  [ReactiveFlags.SKIP]?: boolean // __v_skip
   [ReactiveFlags.IS_REACTIVE]?: boolean
   [ReactiveFlags.IS_READONLY]?: boolean
   [ReactiveFlags.RAW]?: any
@@ -34,7 +44,10 @@ const enum TargetType {
   COMMON = 1,
   COLLECTION = 2
 }
-
+/* 
+Object Array 为COMMON
+Map Set WeakMap WeakSet为COLLECTION集合
+*/
 function targetTypeMap(rawType: string) {
   switch (rawType) {
     case 'Object':
@@ -49,7 +62,11 @@ function targetTypeMap(rawType: string) {
       return TargetType.INVALID
   }
 }
-
+/* 
+  获取TargetType，
+  如果可以拓展或者[ReactiveFlags.SKIP] 为true  那么为非法属性
+  否则获取[Object rawType]调用 targetTypeMap查看是否合法
+*/
 function getTargetType(value: Target) {
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
@@ -84,6 +101,9 @@ type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
+  /* 
+    如果target是readonly那么直接返回
+  */
   if (target && (target as Target)[ReactiveFlags.IS_READONLY]) {
     return target
   }
@@ -166,9 +186,10 @@ export function shallowReadonly<T extends object>(
 function createReactiveObject(
   target: Target,
   isReadonly: boolean,
-  baseHandlers: ProxyHandler<any>,
-  collectionHandlers: ProxyHandler<any>
+  baseHandlers: ProxyHandler<any>, // 对基本类型数据的劫持
+  collectionHandlers: ProxyHandler<any> // 对集合类型的劫持
 ) {
+  //let warn =  reactive(321)这样使用是会warning的
   if (!isObject(target)) {
     if (__DEV__) {
       console.warn(`value cannot be made reactive: ${String(target)}`)
@@ -177,6 +198,9 @@ function createReactiveObject(
   }
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
+  /* 
+  如果target已经被Proxy且writeable贼直接返回
+  */
   if (
     target[ReactiveFlags.RAW] &&
     !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
@@ -184,24 +208,42 @@ function createReactiveObject(
     return target
   }
   // target already has corresponding Proxy
+  /* 
+  readonlyMap  
+  reactiveMap
+  是WeakMap缓存，
+  如果发现已经被代理了则直接返回
+  */
   const proxyMap = isReadonly ? readonlyMap : reactiveMap
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
     return existingProxy
-  }
+  }  
   // only a whitelist of value types can be observed.
+  /* 
+  只有合法的数据才可以被代理，
+  否则返回target
+  */
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
     return target
   }
+  /* 
+    代理
+    集合代理调用collectionHandlers，基础代理调用 baseHandlers
+  */
+  
   const proxy = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
+  /* 
+  设置缓存
+  */
   proxyMap.set(target, proxy)
   return proxy
 }
-
+// 递归调用，如果这一层是Readonly 那么查看他的raw是不是Reactive
 export function isReactive(value: unknown): boolean {
   if (isReadonly(value)) {
     return isReactive((value as Target)[ReactiveFlags.RAW])
@@ -213,11 +255,13 @@ export function isReadonly(value: unknown): boolean {
   return !!(value && (value as Target)[ReactiveFlags.IS_READONLY])
 }
 
+// isReactive isReadonly 都是proxy
 export function isProxy(value: unknown): boolean {
   return isReactive(value) || isReadonly(value)
 }
 
-export function toRaw<T>(observed: T): T {
+// observed存在 则返回raw 否则返回observed存在
+export function toRaw<T>(observed: T): T { 
   return (
     (observed && toRaw((observed as Target)[ReactiveFlags.RAW])) || observed
   )
