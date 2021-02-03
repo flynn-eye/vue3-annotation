@@ -9,7 +9,9 @@ import {
   toRawType,
   isMap
 } from '@vue/shared'
-
+/* 
+这个Handlers负责track Map Set WeakMap WeakSet这些复杂数据类型
+*/
 export type CollectionTypes = IterableCollections | WeakCollections
 
 type IterableCollections = Map<any, any> | Set<any>
